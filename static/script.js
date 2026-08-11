@@ -168,6 +168,14 @@ addRowBtn.addEventListener("click", () => {
   renderResultTable(lastColumns, lastResultRows);
 });
 
+resetResultsBtn.addEventListener("click", () => {
+  if (!lastResultRows.length) return;
+  if (!confirm("추출 결과를 모두 초기화할까요? 다운로드하지 않은 내용은 사라집니다.")) return;
+  lastResultRows = [];
+  renderResultTable(lastColumns, lastResultRows);
+  resultSection.classList.add("hidden");
+});
+
 function renderErrors(errors) {
   errorList.innerHTML = "";
   if (!errors.length) {
