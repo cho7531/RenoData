@@ -16,6 +16,7 @@ const resultSection = document.getElementById("resultSection");
 const rowCount = document.getElementById("rowCount");
 const resultTable = document.getElementById("resultTable");
 const downloadBtn = document.getElementById("downloadBtn");
+const addRowBtn = document.getElementById("addRowBtn");
 
 let selectedFiles = [];
 let lastResultRows = [];
@@ -122,20 +123,51 @@ function renderResultTable(columns, rows) {
     th.textContent = col;
     headRow.appendChild(th);
   });
+  const deleteTh = document.createElement("th");
+  headRow.appendChild(deleteTh);
   thead.appendChild(headRow);
 
-  rows.forEach((row) => {
+  rows.forEach((row, rowIndex) => {
     const tr = document.createElement("tr");
     columns.forEach((col) => {
       const td = document.createElement("td");
       td.textContent = row[col] || "";
+      td.classList.add("editable-cell");
+      td.contentEditable = "true";
+      td.dataset.col = col;
+      td.addEventListener("input", () => {
+        lastResultRows[rowIndex][col] = td.textContent.trim();
+      });
       tr.appendChild(td);
     });
+
+    const deleteTd = document.createElement("td");
+    deleteTd.className = "row-delete-cell";
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "row-delete-btn";
+    deleteBtn.type = "button";
+    deleteBtn.textContent = "삭제";
+    deleteBtn.addEventListener("click", () => {
+      lastResultRows.splice(rowIndex, 1);
+      renderResultTable(lastColumns, lastResultRows);
+    });
+    deleteTd.appendChild(deleteBtn);
+    tr.appendChild(deleteTd);
+
     tbody.appendChild(tr);
   });
 
   rowCount.textContent = rows.length;
 }
+
+addRowBtn.addEventListener("click", () => {
+  const emptyRow = {};
+  lastColumns.forEach((col) => {
+    emptyRow[col] = "";
+  });
+  lastResultRows.push(emptyRow);
+  renderResultTable(lastColumns, lastResultRows);
+});
 
 function renderErrors(errors) {
   errorList.innerHTML = "";
@@ -177,10 +209,8 @@ extractBtn.addEventListener("click", async () => {
 
     renderErrors(data.errors || []);
 
-    if (lastResultRows.length) {
-      renderResultTable(lastColumns, lastResultRows);
-      resultSection.classList.remove("hidden");
-    }
+    renderResultTable(lastColumns, lastResultRows);
+    resultSection.classList.remove("hidden");
   } catch (err) {
     alert("서버와 통신 중 오류가 발생했습니다: " + err.message);
   } finally {
