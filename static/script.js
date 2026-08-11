@@ -17,6 +17,7 @@ const rowCount = document.getElementById("rowCount");
 const resultTable = document.getElementById("resultTable");
 const downloadBtn = document.getElementById("downloadBtn");
 const addRowBtn = document.getElementById("addRowBtn");
+const resetResultsBtn = document.getElementById("resetResultsBtn");
 
 let selectedFiles = [];
 let lastResultRows = [];
@@ -107,8 +108,6 @@ dropzone.addEventListener("drop", (e) => {
 clearBtn.addEventListener("click", () => {
   selectedFiles = [];
   renderFileList();
-  resultSection.classList.add("hidden");
-  errorSection.classList.add("hidden");
 });
 
 function renderResultTable(columns, rows) {
@@ -204,13 +203,16 @@ extractBtn.addEventListener("click", async () => {
       return;
     }
 
-    lastResultRows = data.rows || [];
-    lastColumns = data.columns || [];
+    lastColumns = data.columns || lastColumns;
+    lastResultRows = lastResultRows.concat(data.rows || []);
 
     renderErrors(data.errors || []);
 
     renderResultTable(lastColumns, lastResultRows);
     resultSection.classList.remove("hidden");
+
+    selectedFiles = [];
+    renderFileList();
   } catch (err) {
     alert("서버와 통신 중 오류가 발생했습니다: " + err.message);
   } finally {
