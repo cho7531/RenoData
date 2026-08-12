@@ -9,19 +9,39 @@ MODEL = "claude-sonnet-5"
 MIN_TEXT_LENGTH = 30
 
 COLUMNS = [
-    "대지지분",
-    "소유자명",
+    "호수연번",
+    "토지등소유자번호",
+    "공동지분",
+    "이름",
     "생년월일",
-    "소유자 신주소",
-    "해당필지 지번",
-    "호실",
-    "대지면적",
-    "건축연면적",
-    "파일명",
+    "소유자 주소",
+    "우편번호",
+    "연락처",
+    "해당번지",
+    "주택명",
+    "동명",
+    "호수",
+    "지번면적",
+    "소유 토지면적",
+    "건축물용도",
+    "건축물소유연면적",
 ]
 
-SYSTEM_PROMPT = """당신은 한국의 부동산 등기부등본(등기사항전부증명서) 텍스트에서 정비사업 기초 조사에 필요한
-정보를 추출하는 전문가입니다. 아래 텍스트는 PDF에서 추출한 등기부등본 원문입니다.
+# Fields that live on the property/unit itself rather than on an individual
+# owner. Shown once per unit (on the first owner's row) in the final output.
+UNIT_FIELDS = [
+    "해당번지",
+    "주택명",
+    "동명",
+    "호수",
+    "지번면적",
+    "소유 토지면적",
+    "건축물용도",
+    "건축물소유연면적",
+]
+
+SYSTEM_PROMPT = """당신은 한국의 부동산 등기부등본(등기사항전부증명서) 텍스트에서 정비사업 조합원 명부 작성에
+필요한 정보를 추출하는 전문가입니다. 아래 텍스트는 PDF에서 추출한 등기부등본 원문입니다.
 
 중요: 하나의 PDF 파일 안에 서로 다른 부동산에 대한 등기부등본이 여러 건 이어 붙어 있을 수 있습니다
 (예: 여러 필지/호실을 한 번에 발급받아 하나의 파일로 합친 경우). 각 등기부등본은 보통 "등기사항전부증명서"
@@ -41,16 +61,20 @@ SYSTEM_PROMPT = """당신은 한국의 부동산 등기부등본(등기사항전
 {
   "documents": [
     {
-      "해당필지_지번": "표제부의 토지 지번(구 지번 표기, 예: OO동 123-4)",
-      "호실": "집합건물(아파트/오피스텔/상가 등) 등기부등본인 경우 전유부분의 동/호수 (예: 101동 502호 또는 502호). 토지 등기부등본이거나 호실 정보가 없으면 빈 문자열",
-      "대지면적": "표제부에 기재된 대지면적 (단위 포함, 예: 250.5㎡)",
-      "건축연면적": "건물 표제부에 기재된 연면적 (단위 포함, 예: 320.4㎡). 건물이 없으면 빈 문자열",
+      "해당번지": "대지권의 목적인 토지의 지번. 여러 필지면 쉼표로 나열 (예: 2524-2, 2523-10)",
+      "주택명": "공동주택/연립주택 등의 건물(단지) 이름 (예: 세방)",
+      "동명": "동 표시. 숫자형(예: 101동)이든 문자형(예: 가동)이든 표시된 그대로",
+      "호수": "전유부분의 호수만 (예: 101, 502). 동 표시는 제외하고 숫자만",
+      "지번면적": "표제부에 기재된 해당 토지(지번)의 전체 면적 (단위 포함, 예: 250.5㎡)",
+      "건축물용도": "건물 표제부에 기재된 건축물의 용도 (예: 공동주택, 근린생활시설)",
+      "건축물소유연면적": "전유부분 건물의 표시에 기재된 이 호실 전용 면적 (단위 포함, 예: 84.98㎡). 건물이 없으면 빈 문자열",
+      "대지권비율": "이 호실의 대지권 비율. 등기부에 기재된 형식 그대로 (예: 10000분의 55)",
       "owners": [
         {
-          "소유자명": "갑구에 기재된 현재 유효한 소유자 성명",
+          "이름": "갑구에 기재된 현재 유효한 소유자 성명",
           "생년월일": "소유자의 생년월일 (예: 1970-01-01). 주민등록번호 앞 6자리만 있으면 YYMMDD 형식 그대로 기재",
-          "소유자_신주소": "갑구에 기재된 소유자의 주소를 도로명(신주소) 형식으로 기재. 도로명 주소가 없고 지번 주소만 있으면 그 주소를 그대로 기재",
-          "대지지분": "해당 소유자의 대지권 비율/지분 (예: 1000분의 123)"
+          "주소": "갑구에 기재된 소유자의 주소를 등기부에 표시된 형식 그대로 기재 (도로명, 괄호 안 종전주소 등 원문 그대로)",
+          "공동지분": "이 호실을 여러 명이 공유하는 경우, 공유자들 사이의 지분 비율 (등기부의 '공유자 지분 O분의 O' 표기를 O/O 형식으로, 예: 1/2). 소유자가 1명뿐이면 빈 문자열"
         }
       ]
     }
@@ -59,7 +83,10 @@ SYSTEM_PROMPT = """당신은 한국의 부동산 등기부등본(등기사항전
 
 문서 하나당, 현재 유효한 소유자가 여러 명(공유)인 경우 owners 배열에 각각 별도 항목으로 모두 포함하세요.
 소유자 정보를 전혀 찾을 수 없으면 owners를 빈 배열로 두세요. 등기부등본이 한 건뿐이어도 documents 배열에
-항목 1개로 넣어서 응답하세요."""
+항목 1개로 넣어서 응답하세요.
+
+주의: "대지권비율"(예: 10000분의 55, 건물 전체 대지 중 이 호실의 몫)과 "공동지분"(예: 1/2, 이 호실을
+공유하는 소유자들 사이의 지분)은 서로 다른 개념입니다. 혼동하지 마세요."""
 
 
 def _get_client():
@@ -102,30 +129,86 @@ def extract_structured_info(pdf_text):
     return _parse_json_response(raw_text)
 
 
+def _parse_area(text):
+    if not text:
+        return None
+    match = re.search(r"[\d,]+(?:\.\d+)?", text)
+    if not match:
+        return None
+    try:
+        return float(match.group(0).replace(",", ""))
+    except ValueError:
+        return None
+
+
+def _parse_ratio(text):
+    """Parses Korean '분모분의분자' notation (e.g. '10000분의 55') or 'a/b'."""
+    if not text:
+        return None
+    match = re.search(r"([\d,]+(?:\.\d+)?)\s*분의\s*([\d,]+(?:\.\d+)?)", text)
+    if match:
+        denominator, numerator = match.groups()
+    else:
+        match = re.search(r"([\d,]+(?:\.\d+)?)\s*/\s*([\d,]+(?:\.\d+)?)", text)
+        if not match:
+            return None
+        numerator, denominator = match.groups()
+    try:
+        denominator = float(denominator.replace(",", ""))
+        numerator = float(numerator.replace(",", ""))
+        if denominator == 0:
+            return None
+        return numerator / denominator
+    except ValueError:
+        return None
+
+
+def _compute_owned_land_area(site_area_text, ratio_text):
+    area = _parse_area(site_area_text)
+    ratio = _parse_ratio(ratio_text)
+    if area is None or ratio is None:
+        return ""
+    return f"{area * ratio:.4f}"
+
+
 def rows_from_structured_info(data, filename):
     documents = data.get("documents") or [data]
     rows = []
-    for doc in documents:
+    for doc_idx, doc in enumerate(documents):
+        owned_land_area = _compute_owned_land_area(
+            doc.get("지번면적", ""), doc.get("대지권비율", "")
+        )
         owners = doc.get("owners") or [{}]
+        multi_owner = len(owners) > 1
+        group_key = f"{filename}#{doc_idx}"
         for owner in owners:
             rows.append(
                 {
-                    "대지지분": owner.get("대지지분", ""),
-                    "소유자명": owner.get("소유자명", ""),
+                    "_group": group_key,
+                    "호수연번": "",
+                    "토지등소유자번호": "",
+                    "공동지분": owner.get("공동지분", "") if multi_owner else "",
+                    "이름": owner.get("이름", ""),
                     "생년월일": owner.get("생년월일", ""),
-                    "소유자 신주소": owner.get("소유자_신주소", ""),
-                    "해당필지 지번": doc.get("해당필지_지번", ""),
-                    "호실": doc.get("호실", ""),
-                    "대지면적": doc.get("대지면적", ""),
-                    "건축연면적": doc.get("건축연면적", ""),
-                    "파일명": filename,
+                    "소유자 주소": owner.get("주소", ""),
+                    "우편번호": "",
+                    "연락처": "",
+                    "해당번지": doc.get("해당번지", ""),
+                    "주택명": doc.get("주택명", ""),
+                    "동명": doc.get("동명", ""),
+                    "호수": doc.get("호수", ""),
+                    "지번면적": doc.get("지번면적", ""),
+                    "소유 토지면적": owned_land_area,
+                    "건축물용도": doc.get("건축물용도", ""),
+                    "건축물소유연면적": doc.get("건축물소유연면적", ""),
                 }
             )
     return rows
 
 
 def process_pdf_file(file_stream, filename):
-    """Returns (rows, error). rows is a list of dicts matching COLUMNS, error is None on success."""
+    """Returns (rows, error). rows is a list of dicts matching COLUMNS (plus an
+    internal "_group" key), error is None on success."""
     try:
         text = extract_text_from_pdf(file_stream)
     except Exception as exc:

@@ -110,7 +110,52 @@ clearBtn.addEventListener("click", () => {
   renderFileList();
 });
 
+const UNIT_FIELDS = [
+  "해당번지",
+  "주택명",
+  "동명",
+  "호수",
+  "지번면적",
+  "소유 토지면적",
+  "건축물용도",
+  "건축물소유연면적",
+];
+const READONLY_FIELDS = ["호수연번", "토지등소유자번호"];
+
+function applyGrouping(rows) {
+  let unitSeq = 0;
+  let i = 0;
+  while (i < rows.length) {
+    const group = rows[i]._group;
+    const groupRows = [rows[i]];
+    let j = i + 1;
+    if (group !== undefined && group !== null) {
+      while (j < rows.length && rows[j]._group === group) {
+        groupRows.push(rows[j]);
+        j++;
+      }
+    }
+    unitSeq++;
+    groupRows.forEach((row, idx) => {
+      const isFirst = idx === 0;
+      row["호수연번"] = isFirst ? String(unitSeq) : "";
+      row["토지등소유자번호"] = isFirst ? String(unitSeq) : `${unitSeq}-${idx}`;
+      if (groupRows.length <= 1) {
+        row["공동지분"] = "";
+      }
+      if (!isFirst) {
+        UNIT_FIELDS.forEach((f) => {
+          row[f] = "";
+        });
+      }
+    });
+    i = j;
+  }
+}
+
 function renderResultTable(columns, rows) {
+  applyGrouping(rows);
+
   const thead = resultTable.querySelector("thead");
   const tbody = resultTable.querySelector("tbody");
   thead.innerHTML = "";
@@ -131,12 +176,14 @@ function renderResultTable(columns, rows) {
     columns.forEach((col) => {
       const td = document.createElement("td");
       td.textContent = row[col] || "";
-      td.classList.add("editable-cell");
-      td.contentEditable = "true";
-      td.dataset.col = col;
-      td.addEventListener("input", () => {
-        lastResultRows[rowIndex][col] = td.textContent.trim();
-      });
+      if (!READONLY_FIELDS.includes(col)) {
+        td.classList.add("editable-cell");
+        td.contentEditable = "true";
+        td.dataset.col = col;
+        td.addEventListener("input", () => {
+          lastResultRows[rowIndex][col] = td.textContent.trim();
+        });
+      }
       tr.appendChild(td);
     });
 
