@@ -15,6 +15,8 @@
 
 * { box-sizing: border-box; }
 
+.hidden { display: none; }
+
 body {
   margin: 0;
   font-family: "Noto Sans KR", "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
