@@ -6,7 +6,7 @@ from flask import Flask, jsonify, render_template, request, send_file
 
 load_dotenv()
 
-from excel_generator import build_excel
+from excel_generator import build_excel, fill_postal_codes
 from extractor import COLUMNS, process_pdf_file
 
 app = Flask(__name__)
@@ -68,6 +68,27 @@ def api_download():
         buffer,
         as_attachment=True,
         download_name="등기부등본_추출결과.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+@app.route("/api/update-postal", methods=["POST"])
+def api_update_postal():
+    file = request.files.get("file")
+    if not file or not (file.filename or "").lower().endswith(".xlsx"):
+        return jsonify({"error": "엑셀(.xlsx) 파일을 업로드해주세요."}), 400
+
+    try:
+        buffer = fill_postal_codes(file.stream)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": f"우편번호 업데이트 실패: {exc}"}), 500
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name="우편번호_업데이트결과.xlsx",
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 

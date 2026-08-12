@@ -23,6 +23,57 @@ let selectedFiles = [];
 let lastResultRows = [];
 let lastColumns = [];
 
+const postalFileInput = document.getElementById("postalFileInput");
+const postalSelectBtn = document.getElementById("postalSelectBtn");
+const postalFileName = document.getElementById("postalFileName");
+const postalUpdateBtn = document.getElementById("postalUpdateBtn");
+const postalStatus = document.getElementById("postalStatus");
+
+let postalFile = null;
+
+postalSelectBtn.addEventListener("click", () => postalFileInput.click());
+postalFileInput.addEventListener("change", (e) => {
+  postalFile = e.target.files[0] || null;
+  postalFileName.textContent = postalFile ? postalFile.name : "";
+  postalUpdateBtn.disabled = !postalFile;
+});
+
+postalUpdateBtn.addEventListener("click", async () => {
+  if (!postalFile) return;
+
+  postalUpdateBtn.disabled = true;
+  postalStatus.textContent = "우편번호 조회 중입니다... 잠시만 기다려주세요.";
+  postalStatus.classList.remove("hidden");
+
+  const formData = new FormData();
+  formData.append("file", postalFile);
+
+  try {
+    const res = await fetch("/api/update-postal", { method: "POST", body: formData });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "업데이트 중 오류가 발생했습니다.");
+      return;
+    }
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "우편번호_업데이트결과.xlsx";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert("서버와 통신 중 오류가 발생했습니다: " + err.message);
+  } finally {
+    postalStatus.classList.add("hidden");
+    postalUpdateBtn.disabled = false;
+  }
+});
+
 function formatSize(bytes) {
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + " KB";
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";

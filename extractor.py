@@ -88,6 +88,12 @@ SYSTEM_PROMPT = """당신은 한국의 부동산 등기부등본(등기사항전
 주의: "대지권비율"(예: 10000분의 55, 건물 전체 대지 중 이 호실의 몫)과 "공동지분"(예: 1/2, 이 호실을
 공유하는 소유자들 사이의 지분)은 서로 다른 개념입니다. 혼동하지 마세요."""
 
+POSTAL_SYSTEM_PROMPT = """당신은 대한민국 도로명주소 우편번호(5자리 새 우편번호)를 추정하는 전문가입니다.
+아래 목록에 주어진 각 주소에 대해 우편번호를 반환하세요. 확실히 알지 못하는 주소는 절대 추측해서 지어내지 말고
+빈 문자열("")로 두세요. 반드시 아래 형식의 JSON 객체만 출력하고 다른 설명은 추가하지 마세요.
+
+{"주소1": "12345", "주소2": ""}"""
+
 
 def _get_client():
     api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -127,6 +133,30 @@ def extract_structured_info(pdf_text):
         block.text for block in response.content if block.type == "text"
     )
     return _parse_json_response(raw_text)
+
+
+def lookup_postal_codes(addresses):
+    """Given a list of Korean addresses, returns a dict mapping each unique,
+    non-empty address to a best-effort 5-digit postal code (or "" if unknown)."""
+    unique_addresses = sorted({a.strip() for a in addresses if a and a.strip()})
+    if not unique_addresses:
+        return {}
+
+    client = _get_client()
+    response = client.messages.create(
+        model=MODEL,
+        max_tokens=2000,
+        system=POSTAL_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": "\n".join(unique_addresses)}],
+    )
+    raw_text = "".join(
+        block.text for block in response.content if block.type == "text"
+    )
+    try:
+        result = _parse_json_response(raw_text)
+    except json.JSONDecodeError:
+        return {}
+    return result if isinstance(result, dict) else {}
 
 
 def _parse_area(text):
