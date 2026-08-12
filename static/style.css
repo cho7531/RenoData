@@ -17,7 +17,7 @@
 
 body {
   margin: 0;
-  font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: "Noto Sans KR", "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   background: var(--bg);
   color: var(--text);
 }
@@ -37,40 +37,54 @@ body::before {
 
 header {
   display: flex;
-  align-items: flex-start;
-  gap: 14px;
+  flex-direction: column;
+  gap: 10px;
   margin-bottom: 32px;
   padding-bottom: 24px;
   border-bottom: 1px solid var(--border);
 }
 
-header::before {
-  content: "";
-  flex: none;
-  width: 42px;
-  height: 42px;
-  border-radius: 8px;
-  background: var(--primary);
-  box-shadow: var(--shadow-sm);
+.header-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.header-icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.header-icon-symbol {
+  font-size: 2.1rem;
+}
+
+.header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 header h1 {
-  font-size: 1.55rem;
-  font-weight: 800;
-  margin: 4px 0 6px;
-  letter-spacing: -0.02em;
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.04em;
   color: var(--text);
+  line-height: 1.1;
 }
 
 .subtitle {
   color: var(--muted);
   margin: 0;
-  line-height: 1.5;
-}
-
-.hidden { display: none !important; }
-
-.dropzone {
+  line-height: 1.55;
+  font-weight: 500;
+  white-space: nowrap;
   position: relative;
   border: 1.5px dashed #c3d3e8;
   border-radius: 10px;
@@ -106,7 +120,7 @@ header h1 {
 }
 
 section {
-  margin-top: 32px;
+  margin-top: 28px;
 }
 
 section h2 {
