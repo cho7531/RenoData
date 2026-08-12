@@ -23,54 +23,35 @@ let selectedFiles = [];
 let lastResultRows = [];
 let lastColumns = [];
 
-const postalFileInput = document.getElementById("postalFileInput");
-const postalSelectBtn = document.getElementById("postalSelectBtn");
-const postalFileName = document.getElementById("postalFileName");
-const postalUpdateBtn = document.getElementById("postalUpdateBtn");
-const postalStatus = document.getElementById("postalStatus");
+const updatePostalBtn = document.getElementById("updatePostalBtn");
 
-let postalFile = null;
+updatePostalBtn.addEventListener("click", async () => {
+  if (!lastResultRows.length) return;
 
-postalSelectBtn.addEventListener("click", () => postalFileInput.click());
-postalFileInput.addEventListener("change", (e) => {
-  postalFile = e.target.files[0] || null;
-  postalFileName.textContent = postalFile ? postalFile.name : "";
-  postalUpdateBtn.disabled = !postalFile;
-});
-
-postalUpdateBtn.addEventListener("click", async () => {
-  if (!postalFile) return;
-
-  postalUpdateBtn.disabled = true;
-  postalStatus.textContent = "우편번호 조회 중입니다... 잠시만 기다려주세요.";
-  postalStatus.classList.remove("hidden");
-
-  const formData = new FormData();
-  formData.append("file", postalFile);
+  updatePostalBtn.disabled = true;
+  updatePostalBtn.textContent = "업데이트 중...";
 
   try {
-    const res = await fetch("/api/update-postal", { method: "POST", body: formData });
+    const res = await fetch("/api/postal-codes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rows: lastResultRows }),
+    });
+
+    const data = await res.json();
 
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      alert(data.error || "업데이트 중 오류가 발생했습니다.");
+      alert(data.error || "우편번호 업데이트 중 오류가 발생했습니다.");
       return;
     }
 
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "우편번호_업데이트결과.xlsx";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    lastResultRows = data.rows || lastResultRows;
+    renderResultTable(lastColumns, lastResultRows);
   } catch (err) {
     alert("서버와 통신 중 오류가 발생했습니다: " + err.message);
   } finally {
-    postalStatus.classList.add("hidden");
-    postalUpdateBtn.disabled = false;
+    updatePostalBtn.disabled = false;
+    updatePostalBtn.textContent = "우편번호 업데이트";
   }
 });
 

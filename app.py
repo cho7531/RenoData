@@ -6,8 +6,8 @@ from flask import Flask, jsonify, render_template, request, send_file
 
 load_dotenv()
 
-from excel_generator import build_excel, fill_postal_codes
-from extractor import COLUMNS, process_pdf_file
+from excel_generator import build_excel
+from extractor import COLUMNS, lookup_postal_codes, process_pdf_file
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # 200MB total request cap
@@ -72,25 +72,25 @@ def api_download():
     )
 
 
-@app.route("/api/update-postal", methods=["POST"])
-def api_update_postal():
-    file = request.files.get("file")
-    if not file or not (file.filename or "").lower().endswith(".xlsx"):
-        return jsonify({"error": "엑셀(.xlsx) 파일을 업로드해주세요."}), 400
+@app.route("/api/postal-codes", methods=["POST"])
+def api_postal_codes():
+    payload = request.get_json(silent=True) or {}
+    rows = payload.get("rows")
+    if not rows:
+        return jsonify({"error": "업데이트할 데이터가 없습니다."}), 400
 
-    try:
-        buffer = fill_postal_codes(file.stream)
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
-    except Exception as exc:
-        return jsonify({"error": f"우편번호 업데이트 실패: {exc}"}), 500
+    addresses = [
+        row.get("소유자 주소", "")
+        for row in rows
+        if row.get("소유자 주소") and not row.get("우편번호")
+    ]
+    postal_codes = lookup_postal_codes(addresses)
+    for row in rows:
+        addr = row.get("소유자 주소", "")
+        if addr and not row.get("우편번호"):
+            row["우편번호"] = postal_codes.get(addr.strip(), "")
 
-    return send_file(
-        buffer,
-        as_attachment=True,
-        download_name="우편번호_업데이트결과.xlsx",
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
+    return jsonify({"rows": rows})
 
 
 if __name__ == "__main__":

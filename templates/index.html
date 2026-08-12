@@ -57,6 +57,7 @@
       <div class="result-actions">
         <button id="addRowBtn" class="btn btn-secondary">행 추가</button>
         <button id="resetResultsBtn" class="btn btn-secondary">결과 초기화</button>
+        <button id="updatePostalBtn" class="btn btn-secondary">우편번호 업데이트</button>
         <button id="downloadBtn" class="btn btn-primary">엑셀 다운로드</button>
       </div>
     </div>
@@ -67,18 +68,6 @@
         <tbody></tbody>
       </table>
     </div>
-  </section>
-
-  <section id="postalSection" class="postal-section">
-    <h2>우편번호 업데이트</h2>
-    <p class="hint">위에서 다운로드한 엑셀 파일을 다시 업로드하면, 소유자 주소를 기준으로 빈 우편번호 칸을 채운 새 파일을 내려받습니다.</p>
-    <div class="postal-controls">
-      <input type="file" id="postalFileInput" accept=".xlsx" hidden>
-      <button id="postalSelectBtn" class="btn btn-secondary" type="button">엑셀 파일 선택</button>
-      <span id="postalFileName" class="hint"></span>
-      <button id="postalUpdateBtn" class="btn btn-primary" type="button" disabled>우편번호 업데이트 후 다운로드</button>
-    </div>
-    <p id="postalStatus" class="hint hidden"></p>
   </section>
 </div>
 
