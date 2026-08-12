@@ -78,3 +78,5 @@ venv\Scripts\python app.py
 4. `openpyxl`로 엑셀 파일을 생성해 다운로드합니다.
 
 스캔본처럼 텍스트가 없는 PDF는 추출이 되지 않으며, 해당 파일은 오류 목록에 표시됩니다.
+
+<!-- git-connect test 1786537346 -->
