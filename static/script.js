@@ -1,4 +1,4 @@
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILE_SIZE = 500 * 1024 * 1024;
 const MAX_FILES = 50;
 
 const dropzone = document.getElementById("dropzone");
@@ -98,7 +98,7 @@ function addFiles(newFiles) {
       continue;
     }
     if (file.size > MAX_FILE_SIZE) {
-      rejected.push(`${file.name} (10MB 초과)`);
+      rejected.push(`${file.name} (500MB 초과)`);
       continue;
     }
     if (selectedFiles.length >= MAX_FILES) {

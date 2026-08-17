@@ -1,12 +1,18 @@
+import base64
 import json
 import os
 import re
 
+import pymupdf as fitz
 import pdfplumber
 from anthropic import Anthropic
 
 MODEL = "claude-sonnet-5"
 MIN_TEXT_LENGTH = 30
+RENDER_MAX_EDGE = 1568  # Anthropic's recommended max long-edge for vision input
+RENDER_JPEG_QUALITY = 85
+MAX_SCANNED_PAGES = 400  # sanity cap against pathological files, not a real-world limit
+SCAN_BATCH_PAGES = 20  # pages per vision call, to stay well under the request size limit
 
 COLUMNS = [
     "호수연번",
@@ -113,6 +119,26 @@ def extract_text_from_pdf(file_stream):
     return "\n".join(text_parts).strip()
 
 
+def render_pdf_pages_to_images(file_stream):
+    """Rasterizes each page of a (possibly scanned/text-less) PDF into a
+    base64-encoded JPEG, for feeding to Claude's vision input instead of text.
+    Pages are scaled so their long edge matches Anthropic's recommended max
+    (larger images are auto-downscaled server-side anyway, but sending them
+    already-sized keeps the request well under the API's size limit)."""
+    file_stream.seek(0)
+    pdf_bytes = file_stream.read()
+    images = []
+    with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+        for page in doc[:MAX_SCANNED_PAGES]:
+            long_edge = max(page.rect.width, page.rect.height)
+            zoom = RENDER_MAX_EDGE / long_edge if long_edge > 0 else 1
+            matrix = fitz.Matrix(zoom, zoom)
+            pix = page.get_pixmap(matrix=matrix)
+            jpeg_bytes = pix.tobytes("jpg", jpg_quality=RENDER_JPEG_QUALITY)
+            images.append(base64.b64encode(jpeg_bytes).decode("ascii"))
+    return images
+
+
 def _parse_json_response(raw_text):
     cleaned = raw_text.strip()
     fence_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", cleaned)
@@ -133,6 +159,49 @@ def extract_structured_info(pdf_text):
         block.text for block in response.content if block.type == "text"
     )
     return _parse_json_response(raw_text)
+
+
+def extract_structured_info_from_images(images):
+    client = _get_client()
+    content = [
+        {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": "image/jpeg",
+                "data": img,
+            },
+        }
+        for img in images
+    ]
+    content.append(
+        {
+            "type": "text",
+            "text": "위 이미지는 등기부등본 스캔본 페이지들입니다. 이미지 속 텍스트를 읽어 시스템 프롬프트의 JSON 스키마에 맞춰 추출하세요.",
+        }
+    )
+    response = client.messages.create(
+        model=MODEL,
+        max_tokens=8000,
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": content}],
+    )
+    raw_text = "".join(
+        block.text for block in response.content if block.type == "text"
+    )
+    return _parse_json_response(raw_text)
+
+
+def extract_structured_info_from_scanned_pdf(images):
+    """Runs vision extraction in batches so PDFs with many merged 등기부등본
+    documents (and therefore many pages) stay under the API's per-request
+    size/token limits, then merges each batch's documents into one list."""
+    all_documents = []
+    for start in range(0, len(images), SCAN_BATCH_PAGES):
+        batch = images[start : start + SCAN_BATCH_PAGES]
+        data = extract_structured_info_from_images(batch)
+        all_documents.extend(data.get("documents") or [data])
+    return {"documents": all_documents}
 
 
 def lookup_postal_codes(addresses):
@@ -245,7 +314,22 @@ def process_pdf_file(file_stream, filename):
         return [], f"PDF 읽기 실패: {exc}"
 
     if len(text) < MIN_TEXT_LENGTH:
-        return [], "텍스트를 추출할 수 없는 PDF입니다 (스캔본이거나 손상된 파일일 수 있습니다)."
+        try:
+            images = render_pdf_pages_to_images(file_stream)
+        except Exception as exc:
+            return [], f"스캔본 이미지 변환 실패: {exc}"
+
+        if not images:
+            return [], "텍스트를 추출할 수 없는 PDF입니다 (손상된 파일일 수 있습니다)."
+
+        try:
+            data = extract_structured_info_from_scanned_pdf(images)
+        except json.JSONDecodeError:
+            return [], "정보 추출 결과를 해석하지 못했습니다. 다시 시도해주세요."
+        except Exception as exc:
+            return [], f"스캔본 정보 추출 실패: {exc}"
+
+        return rows_from_structured_info(data, filename), None
 
     try:
         data = extract_structured_info(text)

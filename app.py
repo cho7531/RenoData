@@ -10,9 +10,9 @@ from excel_generator import build_excel
 from extractor import COLUMNS, lookup_postal_codes, process_pdf_file
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # 200MB total request cap
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024 * 1024  # 10GB total request cap
 
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB per file
+MAX_FILE_SIZE = 500 * 1024 * 1024  # 500MB per file
 MAX_FILES = 50
 
 
@@ -44,7 +44,7 @@ def api_extract():
         size = f.stream.tell()
         f.stream.seek(0)
         if size > MAX_FILE_SIZE:
-            errors.append({"filename": filename, "message": "파일 크기가 10MB를 초과합니다."})
+            errors.append({"filename": filename, "message": "파일 크기가 500MB를 초과합니다."})
             continue
 
         rows, error = process_pdf_file(f.stream, filename)
